@@ -1,22 +1,13 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InventoryRepository } from '../repository/inventory.repository';
 import { Inventory } from '../entities/inventory.entity';
 import { InventoryInput, InventoryStatus, OrderItemsInput, UpdateInventoryDto } from '../dto/inventory.dto';
 import { DataSource, DeleteResult } from 'typeorm';
 import { InventoryHistory } from '../entities/inventory_history.entity';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ClientProxy } from '@nestjs/microservices';
-import { lastValueFrom } from 'rxjs';
-import { ORDER_SERVICE } from 'src/constants';
 
 @Injectable()
 export class InventoryService {
-  constructor(
-    private readonly inventoryRepository: InventoryRepository,
-    private readonly dataSource: DataSource,
-    private readonly eventEmitter: EventEmitter2,
-    @Inject(ORDER_SERVICE) private orderClient: ClientProxy,
-  ) {}
+  constructor(private readonly inventoryRepository: InventoryRepository, private readonly dataSource: DataSource) {}
 
   getInventories(): Promise<Inventory[]> {
     return this.inventoryRepository.find();
@@ -76,19 +67,17 @@ export class InventoryService {
         quantityRemaining: inventory.quantityRemaining,
       });
       const updatedInventory = await manager.save(inventory);
-      this.eventEmitter.emit('inventory.top-up', this.generateInventoryHistoryInput(updatedInventory, quantity));
       return updatedInventory;
     });
   }
 
   async verifyOrderDetails(input: OrderItemsInput): Promise<void> {
-    const { orderLineItems, orderId, Authentication } = input;
+    const { orderLineItems } = input;
     for (const { quantity, productId } of orderLineItems) {
       const inventory = await this.inventoryRepository.getByProductId(productId);
       if (!inventory) return;
       if (inventory.quantityRemaining < quantity) return;
     }
-    await lastValueFrom(this.orderClient.emit('order_verified', { status: true, orderId, Authentication }));
   }
 
   deleteItem(id: string): Promise<DeleteResult> {

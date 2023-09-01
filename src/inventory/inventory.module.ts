@@ -13,7 +13,6 @@ import { InventoryEvents } from './events/inventory.events';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Inventory, InventoryHistory]),
-    RmqModule,
     AuthModule,
     RmqModule.register({ name: AUTH_SERVICE }),
     RmqModule.register({ name: ORDER_SERVICE }),
